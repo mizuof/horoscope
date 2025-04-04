@@ -1,4 +1,3 @@
-```markdown
 # Mizu 星座运势
 
 ![horoscope](https://github.com/user-attachments/assets/3fb6c284-2439-44f2-8eaa-039c644a999d)
