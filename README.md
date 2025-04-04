@@ -47,3 +47,64 @@
 1. 克隆仓库：
    ```bash
    git clone https://github.com/mizuof/mizu-horoscope.git
+
+# Mizu Horoscope
+
+![horoscope](https://github.com/user-attachments/assets/3fb6c284-2439-44f2-8eaa-039c644a999d)
+
+A beautifully crafted horoscope app featuring a stunning starry background, dynamic star wheel, and smooth animations.
+
+## Features
+
+✨ **Stunning Visuals**
+- **Dynamic Starry Background**: Implemented using [Three.js](https://threejs.org/)
+- **Rotatable Star Wheel**: Interactive and visually appealing
+- **Dynamic Color Scheme**: Changes based on the selected zodiac sign
+- **Smooth Animations**: Seamless transitions and effects
+
+📱 **Responsive Design**
+- **Mobile and PC Compatible**: Perfectly adapts to all screen sizes
+- **Touch-Optimized**: Enhanced interaction for touch devices
+- **Hidden Scrollbars**: Maintains a clean look while preserving scrolling functionality
+
+🔮 **Horoscope Features**
+- **Complete Zodiac Information**: Detailed insights for all 12 zodiac signs
+- **Multi-Dimensional Ratings**: Health, love, career, and more
+- **Lucky Numbers and Colors**: Personalized details for each sign
+- **Real-Time Data Caching**: Reduces repeated requests for efficiency
+
+🎨 **Design Highlights**
+- **Micro-Interactions and Haptic Feedback**: Enhanced user experience
+- **Number Growth Animations**: Dynamic and engaging visuals
+- **Progress Bar Animations**: Visual representation of zodiac traits
+- **Particle Background Effects**: Adds depth and movement to the interface
+
+## Technology Stack
+
+- **Frontend Framework**: Pure HTML/CSS/JavaScript
+- **Graphics Library**: [Three.js](https://threejs.org/) for the starry background
+- **Particle Effects**: [particles.js](https://vincentgarreau.com/particles.js/)
+- **Icon Font**: [iconfont](https://www.iconfont.cn/)
+- **Animations**: CSS animations + JavaScript animations
+
+## Installation and Usage
+
+### Online Experience
+You can access the app directly at [Demo Link](https://xz.mizu7.top/)
+
+### Local Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/mizuof/mizu-horoscope.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd mizu-horoscope
+   ```
+3. Open the `index.html` file in your preferred web browser.
+
+### Additional Notes
+- Ensure you have an active internet connection to load external libraries and resources.
+- For best performance, use the latest version of a modern web browser.
+
+Feel free to customize and enhance the app as per your requirements. If you encounter any issues or have suggestions for improvements, please feel free to open an issue on the [GitHub repository](https://github.com/mizuof/mizu-horoscope).
