@@ -119,4 +119,3 @@ You can access the app directly at [Demo Link](https://xz.mizu7.top/)
 - For best performance, use the latest version of a modern web browser.
 
 Feel free to customize and enhance the app as per your requirements. If you encounter any issues or have suggestions for improvements, please feel free to open an issue on the [GitHub repository](https://github.com/mizuof/mizu-horoscope).
-```
