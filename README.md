@@ -1,6 +1,6 @@
 # Mizu 星座运势 / Mizu Horoscope
 
-![horoscope](https://github.com/user-attachments/assets/3fb6c284-2439-44f2-8eaa-039c644a999d)
+<img width="252" alt="horoscope (2)" src="https://github.com/user-attachments/assets/81809f44-e0b0-4f03-8582-b5ace5c2595d" />
 
 ---
 
