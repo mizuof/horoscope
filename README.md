@@ -1,6 +1,6 @@
 # Mizu星座运势
 
-![屏幕截图 2025-04-04 181439](https://github.com/user-attachments/assets/0c5e233a-8560-4b74-aac4-3dc7c44b33aa)
+![horoscope](https://github.com/user-attachments/assets/3fb6c284-2439-44f2-8eaa-039c644a999d)
 
 一个精美的星座运势查看应用，具有华丽的星空背景、动态星盘和流畅的动画效果。
 
