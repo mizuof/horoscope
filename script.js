@@ -1,3 +1,4 @@
+
 // 星座配置
 const ZODIAC_CONFIG = [
     { id: 'aries', name: '白羊座', icon: 'icon-baiyang', angle: 0, color: '#FF6B6B' },
@@ -17,22 +18,34 @@ const ZODIAC_CONFIG = [
 // 星空背景
 let scene, camera, renderer, stars;
 function initStarField() {
+    // 检测WebGL支持
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) throw new Error('WebGL not supported');
+    } catch (e) {
+        console.warn('WebGL not supported, falling back to simpler background');
+        document.getElementById('starCanvas').style.display = 'none';
+        return;
+    }
+
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     renderer = new THREE.WebGLRenderer({ 
         canvas: document.querySelector('#starCanvas'),
-        antialias: true 
+        antialias: false,
+        powerPreference: "low-power"
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     // 创建粒子
-    const positions = new Float32Array(10000 * 3);
-    const colors = new Float32Array(10000 * 3);
-    for(let i = 0; i < 30000; i += 3) {
-        positions[i] = (Math.random() - 0.5) * 3000;
-        positions[i+1] = (Math.random() - 0.5) * 3000;
-        positions[i+2] = (Math.random() - 0.5) * 3000;
+    const positions = new Float32Array(8000 * 3); // 减少粒子数量
+    const colors = new Float32Array(8000 * 3);
+    for(let i = 0; i < 24000; i += 3) {
+        positions[i] = (Math.random() - 0.5) * 2000;
+        positions[i+1] = (Math.random() - 0.5) * 2000;
+        positions[i+2] = (Math.random() - 0.5) * 2000;
         
         colors[i] = 0.8 + Math.random() * 0.2;
         colors[i+1] = 0.8 + Math.random() * 0.2;
@@ -44,77 +57,62 @@ function initStarField() {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     
     const material = new THREE.PointsMaterial({ 
-        size: 1.5,
+        size: 1.2, // 减小粒子大小
         sizeAttenuation: true,
         vertexColors: true,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.7
     });
     
     stars = new THREE.Points(geometry, material);
     scene.add(stars);
 
-    // 添加星云效果
-    const nebulaGeometry = new THREE.SphereGeometry(500, 32, 32);
-    const nebulaMaterial = new THREE.MeshBasicMaterial({
-        color: 0x8b5cf6,
-        transparent: true,
-        opacity: 0.05
-    });
-    const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
-    scene.add(nebula);
-
-    camera.position.z = 800;
+    camera.position.z = 600; // 更近的视距
     animateStars();
 }
 
 function animateStars() {
     requestAnimationFrame(animateStars);
-    stars.rotation.x += 0.0002;
-    stars.rotation.y += 0.0003;
+    stars.rotation.x += 0.0001; // 减慢旋转速度
+    stars.rotation.y += 0.00015;
     renderer.render(scene, camera);
 }
 
 // 粒子效果
 function initParticles() {
+    if (navigator.hardwareConcurrency < 2) return; // 低端设备不加载粒子
+    
     particlesJS('particles', {
         "particles": {
-            "number": { "value": 60, "density": { "enable": true, "value_area": 800 } },
+            "number": { "value": 40, "density": { "enable": true, "value_area": 600 } },
             "color": { "value": "#8b5cf6" },
             "shape": { "type": "circle" },
             "opacity": {
-                "value": 0.5,
+                "value": 0.4,
                 "random": true,
                 "anim": { "enable": true, "speed": 1, "opacity_min": 0.1 }
             },
             "size": {
-                "value": 3,
+                "value": 2.5,
                 "random": true,
                 "anim": { "enable": true, "speed": 2, "size_min": 0.3 }
             },
             "line_linked": {
                 "enable": true,
-                "distance": 150,
+                "distance": 120,
                 "color": "#8b5cf6",
-                "opacity": 0.2,
-                "width": 1
+                "opacity": 0.15,
+                "width": 0.8
             },
             "move": {
                 "enable": true,
-                "speed": 1,
+                "speed": 0.8,
                 "direction": "none",
                 "random": true,
                 "straight": false,
                 "out_mode": "out",
                 "bounce": false,
-                "attract": { "enable": true, "rotateX": 600, "rotateY": 1200 }
-            }
-        },
-        "interactivity": {
-            "detect_on": "canvas",
-            "events": {
-                "onhover": { "enable": true, "mode": "repulse" },
-                "onclick": { "enable": true, "mode": "push" }
+                "attract": { "enable": true, "rotateX": 500, "rotateY": 1000 }
             }
         }
     });
@@ -127,11 +125,11 @@ class ZodiacSystem {
         this.activeNode = null;
         this.cache = new Map();
         this.isLoading = false;
+        this.currentRequest = null;
+        this.lastClickTime = 0;
         this.initWheel();
         this.initConnectors();
         this.setupEventListeners();
-        this.touchStartY = 0;
-        this.isDragging = false;
     }
 
     initWheel() {
@@ -146,17 +144,26 @@ class ZodiacSystem {
             node.style.borderColor = config.color;
             node.style.boxShadow = `0 0 15px ${config.color}`;
             
-            node.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!this.isLoading) {
-                    this.showHoroscope(config);
-                }
-            });
+            node.addEventListener('click', (e) => this.handleZodiacClick(e, config));
             wheel.appendChild(node);
         });
         
         this.positionNodes();
         window.addEventListener('resize', () => this.positionNodes());
+    }
+
+    handleZodiacClick(e, config) {
+        e.stopPropagation();
+        
+        // 双击防抖 (300ms间隔)
+        const now = Date.now();
+        if (now - this.lastClickTime < 300) {
+            this.lastClickTime = 0;
+            return;
+        }
+        this.lastClickTime = now;
+        
+        this.showHoroscope(config);
     }
 
     initConnectors() {
@@ -255,36 +262,54 @@ class ZodiacSystem {
     }
 
     async showHoroscope(config) {
-        if (this.currentSign === config.id || this.isLoading) return;
-
-        this.isLoading = true;
+        if (this.isLoading && this.currentSign === config.id) return;
         
+        // 取消之前的请求
+        if (this.currentRequest) {
+            this.currentRequest.abort();
+            this.currentRequest = null;
+        }
+        
+        this.isLoading = true;
+        this.currentSign = config.id;
+        
+        // 更新UI状态
         if (this.activeNode) {
             this.activeNode.classList.remove('active');
         }
-        
-        this.currentSign = config.id;
         this.activeNode = document.querySelector(`.zodiac-node[data-sign="${config.id}"]`);
         this.activeNode.classList.add('active');
-
+        
         document.getElementById('modalBackdrop').classList.add('show');
 
         const card = document.getElementById('horoscopeCard');
         card.innerHTML = `
-            <div style="display: flex; justify-content: center; align-items: center; height: 200px;">
-                <div class="loading-spinner"></div>
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>加载中...</p>
             </div>
         `;
-        card.classList.add('show');
+        card.classList.add('show', 'loading');
         
         try {
-            const data = await this.getHoroscopeData(config.id);
-            this.displayHoroscope(config, data);
+            const controller = new AbortController();
+            this.currentRequest = controller;
+            
+            const data = await this.getHoroscopeData(config.id, controller.signal);
+            
+            // 确保不是被取消的请求
+            if (!controller.signal.aborted) {
+                this.displayHoroscope(config, data);
+            }
         } catch (error) {
-            console.error("Error fetching horoscope data:", error);
-            this.displayError(config);
+            if (error.name !== 'AbortError') {
+                console.error('加载运势失败:', error);
+                this.displayError(config);
+            }
         } finally {
             this.isLoading = false;
+            this.currentRequest = null;
+            card.classList.remove('loading');
         }
     }
     
@@ -307,112 +332,124 @@ class ZodiacSystem {
         }, 500);
     }
     
-    async getHoroscopeData(sign) {
+    async getHoroscopeData(sign, signal, retryCount = 0) {
+        const MAX_RETRIES = 2;
         const cacheKey = `${sign}-${new Date().toLocaleDateString()}`;
+        
+        // 检查内存缓存
         if (this.cache.has(cacheKey)) {
             return this.cache.get(cacheKey);
         }
         
-        // 使用AbortController防止重复请求
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        // 检查本地存储缓存
+        try {
+            const localStorageData = localStorage.getItem(`horoscope-${cacheKey}`);
+            if (localStorageData) {
+                const data = JSON.parse(localStorageData);
+                this.cache.set(cacheKey, data);
+                return data;
+            }
+        } catch (e) {
+            console.warn('读取本地缓存失败', e);
+        }
         
         try {
+            // 使用新的API端点
             const response = await fetch(`https://xz.mizu7.top/api/horoscope.php?sign=${sign}`, {
-                signal: controller.signal
+                signal
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
             const data = await response.json();
-
-            if (!data.analysis) {
-                data.analysis = this.generateAnalysis(sign);
-            }
-            if (!data.lucky_color) {
-                data.lucky_color = this.getRandomColor();
-            }
-            if (!data.lucky_number) {
-                data.lucky_number = Math.floor(Math.random() * 10) + 1;
+            
+            // 缓存数据
+            this.cache.set(cacheKey, data);
+            try {
+                localStorage.setItem(`horoscope-${cacheKey}`, JSON.stringify(data));
+            } catch (e) {
+                console.warn('本地存储写入失败', e);
             }
             
-            this.cache.set(cacheKey, data);
             return data;
         } catch (error) {
-            console.error("Fetch error:", error);
+            if (retryCount < MAX_RETRIES && !signal.aborted) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                return this.getHoroscopeData(sign, signal, retryCount + 1);
+            }
             throw error;
-        } finally {
-            clearTimeout(timeoutId);
         }
     }
 
-    generateAnalysis(sign) {
-        const aspects = ["事业", "爱情", "健康", "财运", "人际关系"];
-        const qualities = ["极佳", "良好", "平稳", "需要注意", "充满挑战"];
-        const advice = [
-            "今天适合尝试新事物",
-            "保持耐心会有好结果",
-            "注意与同事的沟通方式",
-            "财务上要谨慎决策",
-            "感情方面会有惊喜",
-            "健康方面要多加留意"
-        ];
-        
-        return `今日${ZODIAC_CONFIG.find(z => z.id === sign).name}在${aspects[Math.floor(Math.random()*aspects.length)]}方面${qualities[Math.floor(Math.random()*qualities.length)]}。${advice[Math.floor(Math.random()*advice.length)]}。`;
-    }
-
-    getRandomColor() {
-        const colors = ["红色", "蓝色", "绿色", "紫色", "金色", "银色", "粉色", "橙色"];
-        return colors[Math.floor(Math.random() * colors.length)];
-    }
-
     createParticles(color1, color2) {
+        if (navigator.hardwareConcurrency < 2) return; // 低端设备不创建粒子
+        
         const particlesContainer = document.getElementById('particles');
         particlesContainer.innerHTML = '';
         
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 15; i++) { // 减少粒子数量
             const particle = document.createElement('div');
             particle.className = 'particle';
             
-            const size = Math.random() * 8 + 4;
+            const size = Math.random() * 6 + 3; // 减小粒子大小
             particle.style.width = `${size}px`;
             particle.style.height = `${size}px`;
             particle.style.left = `${Math.random() * 100}%`;
             particle.style.top = `${Math.random() * 100}%`;
             particle.style.background = `radial-gradient(circle, ${color1}, ${color2})`;
-            particle.style.opacity = Math.random() * 0.6 + 0.2;
-            particle.style.animationDelay = `${Math.random() * 4}s`;
+            particle.style.opacity = Math.random() * 0.5 + 0.2;
+            particle.style.animationDelay = `${Math.random() * 3}s`;
             
             particlesContainer.appendChild(particle);
         }
     }
 
     animateNumber(element, target, duration = 1500) {
-        const start = 0;
-        const increment = target / (duration / 16);
-        let current = start;
-        
-        const timer = setInterval(() => {
-            current += increment;
-            if (current >= target) {
-                clearInterval(timer);
-                current = target;
-                element.classList.remove('counting');
-            }
-            element.textContent = Math.floor(current);
-        }, 16);
+        return new Promise((resolve) => {
+            const start = 0;
+            const startTime = performance.now();
+            
+            const animate = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const value = Math.floor(progress * target);
+                
+                element.textContent = value;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    element.classList.remove('counting');
+                    resolve();
+                }
+            };
+            
+            element.classList.add('counting');
+            requestAnimationFrame(animate);
+        });
     }
 
-    displayHoroscope(config, data) {
+    lightenColor(color, percent) {
+        // 简化版颜色变亮函数
+        const num = parseInt(color.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.min((num >> 16) + amt, 255);
+        const G = Math.min((num >> 8 & 0x00FF) + amt, 255);
+        const B = Math.min((num & 0x0000FF) + amt, 255);
+        
+        return `#${(
+            (1 << 24) + (R << 16) + (G << 8) + B
+        ).toString(16).slice(1)}`;
+    }
+
+    async displayHoroscope(config, data) {
         const card = document.getElementById('horoscopeCard');
         const { basic_info, lucky, analysis, overall_score } = data;
         const { health, love, career } = analysis;
     
-        // 动态渐变色 - 使用星座颜色
+        // 使用星座主色和变亮色
         const color1 = config.color;
-        const color2 = this.lightenColor(config.color, 20);
+        const color2 = this.lightenColor(color1, 20);
         
         // 更新全局颜色变量
         document.documentElement.style.setProperty('--primary', color1);
@@ -420,8 +457,8 @@ class ZodiacSystem {
         
         // 更新星盘节点颜色
         document.querySelectorAll('.zodiac-node').forEach(node => {
-            node.style.borderColor = `var(--primary)`;
-            node.style.boxShadow = `0 0 15px var(--primary)`;
+            node.style.borderColor = color1;
+            node.style.boxShadow = `0 0 15px ${color1}`;
         });
         
         this.createParticles(color1, color2);
@@ -441,7 +478,10 @@ class ZodiacSystem {
                         ${basic_info.name}今日运势
                     </h2>
                     <p style="margin: 0.5rem 0 0; opacity: 0.8; font-size: 0.9rem;">
-                        ${basic_info.date} | ${basic_info.element}
+                        ${basic_info.date} | ${basic_info.element} | ${basic_info.date_range || ''}
+                    </p>
+                    <p style="margin: 0.2rem 0 0; opacity: 0.7; font-size: 0.8rem;">
+                        守护行星: ${basic_info.ruling_planet || '未知'} | 性格: ${basic_info.personality || '未知'}
                     </p>
                 </div>
             </div>
@@ -449,7 +489,7 @@ class ZodiacSystem {
             <div class="stats-container">
                 <div class="stat-item">
                     <h3 style="margin: 0 0 0.5rem; font-size: 1rem;">健康指数</h3>
-                    <div class="stat-value counting">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
+                    <div class="stat-value">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
                     <p style="margin: 0.2rem 0; font-size: 0.85rem; opacity: 0.8;">${health.evaluation}</p>
                     <div class="stat-bar">
                         <div class="stat-bar-fill" style="width: 0%; background: linear-gradient(to right, ${color1}, ${color2});"></div>
@@ -459,7 +499,7 @@ class ZodiacSystem {
                 
                 <div class="stat-item">
                     <h3 style="margin: 0 0 0.5rem; font-size: 1rem;">爱情运势</h3>
-                    <div class="stat-value counting">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
+                    <div class="stat-value">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
                     <p style="margin: 0.2rem 0; font-size: 0.85rem; opacity: 0.8;">${love.evaluation}</p>
                     <div class="stat-bar">
                         <div class="stat-bar-fill" style="width: 0%; background: linear-gradient(to right, ${color1}, ${color2});"></div>
@@ -469,7 +509,7 @@ class ZodiacSystem {
                 
                 <div class="stat-item">
                     <h3 style="margin: 0 0 0.5rem; font-size: 1rem;">事业指数</h3>
-                    <div class="stat-value counting">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
+                    <div class="stat-value">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
                     <p style="margin: 0.2rem 0; font-size: 0.85rem; opacity: 0.8;">${career.evaluation}</p>
                     <div class="stat-bar">
                         <div class="stat-bar-fill" style="width: 0%; background: linear-gradient(to right, ${color1}, ${color2});"></div>
@@ -479,7 +519,7 @@ class ZodiacSystem {
                 
                 <div class="stat-item">
                     <h3 style="margin: 0 0 0.5rem; font-size: 1rem;">综合运势</h3>
-                    <div class="stat-value counting">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
+                    <div class="stat-value">0<span style="font-size: 0.9rem; opacity: 0.7;">/100</span></div>
                     <p style="margin: 0.2rem 0; font-size: 0.85rem; opacity: 0.8;">
                         ${overall_score > 80 ? '吉星高照' : overall_score > 60 ? '平稳发展' : '需谨慎行事'}
                     </p>
@@ -492,66 +532,73 @@ class ZodiacSystem {
                 </div>
             </div>
             
-            <div style="display: flex; justify-content: space-between; margin-top: 1.5rem; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 0.8rem; border: 1px solid ${color1}20;">
-                <div style="text-align: center; flex: 1;">
-                    <h4 style="margin: 0 0 0.5rem; opacity: 0.8; font-size: 0.9rem;">幸运数字</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold; color: ${color1}">${lucky.number}</div>
+            <div class="lucky-grid">
+                <div class="lucky-item">
+                    <h4>幸运数字</h4>
+                    <div class="lucky-value">${lucky.number}</div>
                 </div>
-                <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 0.5rem;"></div>
-                <div style="text-align: center; flex: 1;">
-                    <h4 style="margin: 0 0 0.5rem; opacity: 0.8; font-size: 0.9rem;">幸运颜色</h4>
-                    <div style="width: 26px; height: 26px; border-radius: 50%; background: ${colorHex}; margin: 0.3rem auto 0; border: 2px solid white;"></div>
-                    <div style="font-size: 1rem; font-weight: bold; color: ${colorHex}">${colorName}</div>
+                <div class="lucky-item">
+                    <h4>幸运颜色</h4>
+                    <div class="color-swatch" style="background: ${colorHex};"></div>
+                    <div class="lucky-value">${colorName}</div>
                 </div>
-                <div style="width: 1px; background: rgba(255,255,255,0.2); margin: 0 0.5rem;"></div>
-                <div style="text-align: center; flex: 1;">
-                    <h4 style="margin: 0 0 0.5rem; opacity: 0.8; font-size: 0.9rem;">幸运时段</h4>
-                    <div style="font-size: 1rem; font-weight: bold; color: ${color1}">${lucky.time}</div>
+                <div class="lucky-item">
+                    <h4>幸运时段</h4>
+                    <div class="lucky-value">${lucky.time}</div>
                 </div>
             </div>
+            
+            <div class="detailed-analysis">
+                <div class="analysis-section">
+                    <h4><i class="fas fa-heartbeat"></i> 健康分析</h4>
+                    <div class="analysis-content">${health.detailed_analysis || health.evaluation}</div>
+                </div>
+                <div class="analysis-section">
+                    <h4><i class="fas fa-heart"></i> 爱情分析</h4>
+                    <div class="analysis-content">${love.detailed_analysis || love.evaluation}</div>
+                </div>
+                <div class="analysis-section">
+                    <h4><i class="fas fa-briefcase"></i> 事业分析</h4>
+                    <div class="analysis-content">${career.detailed_analysis || career.evaluation}</div>
+                </div>
+            </div>
+            
+            ${lucky.compatibility ? `
+            <div class="compatibility-section">
+                ${lucky.compatibility.map(item => `
+                    <div class="compatibility-item">
+                        <div class="compatibility-type">${item.split('：')[0]}</div>
+                        <div class="compatibility-value">${item.split('：')[1]}</div>
+                    </div>
+                `).join('')}
+            </div>
+            ` : ''}
+            
+            ${analysis.daily_summary ? `
+            <div class="daily-summary">
+                <h3><i class="fas fa-star"></i> 今日总评</h3>
+                <p>${analysis.daily_summary}</p>
+            </div>
+            ` : ''}
             
             <div style="margin-top: 1.2rem; text-align: center; opacity: 0.6; font-size: 0.75rem;">
                 <p>向下滑动或点击外部关闭</p>
             </div>
         `;
         
-        card.classList.add('show');
+        // 执行动画
+        await Promise.all([
+            this.animateNumber(document.querySelector('.stat-item:nth-child(1) .stat-value'), health.score),
+            this.animateNumber(document.querySelector('.stat-item:nth-child(2) .stat-value'), love.score),
+            this.animateNumber(document.querySelector('.stat-item:nth-child(3) .stat-value'), career.score),
+            this.animateNumber(document.querySelector('.stat-item:nth-child(4) .stat-value'), overall_score)
+        ]);
         
-        // 触发数字增长动画和进度条动画
-        setTimeout(() => {
-            const healthValue = document.querySelector('.stat-item:nth-child(1) .stat-value');
-            const loveValue = document.querySelector('.stat-item:nth-child(2) .stat-value');
-            const careerValue = document.querySelector('.stat-item:nth-child(3) .stat-value');
-            const overallValue = document.querySelector('.stat-item:nth-child(4) .stat-value');
-            
-            this.animateNumber(healthValue, health.score);
-            this.animateNumber(loveValue, love.score);
-            this.animateNumber(careerValue, career.score);
-            this.animateNumber(overallValue, overall_score);
-            
-            // 进度条动画
-            document.querySelectorAll('.stat-bar-fill').forEach((bar, index) => {
-                const values = [health.score, love.score, career.score, overall_score];
-                setTimeout(() => {
-                    bar.style.width = `${values[index]}%`;
-                }, index * 200);
-            });
-        }, 100);
-    }
-    
-    lightenColor(color, percent) {
-        const num = parseInt(color.replace("#", ""), 16);
-        const amt = Math.round(2.55 * percent);
-        const R = (num >> 16) + amt;
-        const G = (num >> 8 & 0x00FF) + amt;
-        const B = (num & 0x0000FF) + amt;
-        
-        return `#${(
-            0x1000000 +
-            (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
-            (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
-            (B < 255 ? (B < 1 ? 0 : B) : 255)
-        ).toString(16).slice(1)}`;
+        // 更新进度条
+        document.querySelectorAll('.stat-bar-fill').forEach((bar, index) => {
+            const values = [health.score, love.score, career.score, overall_score];
+            bar.style.width = `${values[index]}%`;
+        });
     }
     
     displayError(config) {
@@ -586,9 +633,11 @@ window.addEventListener('load', () => {
 window.addEventListener('resize', () => {
     if (window.resizeTimer) clearTimeout(window.resizeTimer);
     window.resizeTimer = setTimeout(() => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        zodiacSystem.positionNodes();
+        if (camera && renderer) {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        if (zodiacSystem) zodiacSystem.positionNodes();
     }, 200);
 });
